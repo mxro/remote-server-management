@@ -13,7 +13,10 @@ import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
+import io.nextweb.operations.exceptions.ImpossibleListener;
+import io.nextweb.operations.exceptions.ImpossibleResult;
 
+import com.appjangle.rsm.client.commands.ComponentCommand;
 import com.appjangle.rsm.server.RsmServerConfiguration;
 
 import de.mxro.server.ComponentConfiguration;
@@ -28,6 +31,7 @@ public class RsmServerComponent implements ServerComponent {
 	Session session;
 	RsmServerConfiguration conf;
 	Monitor monitor;
+	Link commands;
 
 	@Override
 	public void start(final StartCallback callback) {
@@ -39,7 +43,7 @@ public class RsmServerComponent implements ServerComponent {
 
 		session = Nextweb.createSession();
 
-		final Link commands = session.node(conf.getCommandsNode(),
+		commands = session.node(conf.getCommandsNode(),
 				conf.getCommandsNodeSecret());
 
 		final Result<Monitor> monitorResult = commands.monitor(Interval.FAST,
@@ -78,13 +82,40 @@ public class RsmServerComponent implements ServerComponent {
 	}
 
 	private void processRequests(final NodeList o) {
-		
-		for (final Object child : o.values()) {
-			
-			if (child instanceof )
-			
+
+		for (final Node child : o.nodes()) {
+
+			final Object value = child.value();
+			if (value instanceof ComponentCommand) {
+				final ComponentCommand command = (ComponentCommand) value;
+
+				final Result<Success> removeRequest = commands
+						.removeSafe(child);
+
+				removeRequest.catchImpossible(new ImpossibleListener() {
+
+					@Override
+					public void onImpossible(final ImpossibleResult ir) {
+						// some other process might have processed this item
+					}
+				});
+
+				removeRequest.get(new Closure<Success>() {
+
+					@Override
+					public void apply(final Success o) {
+						processCommand(command);
+					}
+				});
+
+			}
+
 		}
-		
+
+	}
+
+	private void processCommand(final ComponentCommand command) {
+
 	}
 
 	@Override
