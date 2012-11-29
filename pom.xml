@@ -35,17 +35,13 @@
 	<dependencies>
 
 
+		
 		<dependency>
-			<groupId>one.utils</groupId>
-			<artifactId>oneUtils</artifactId>
+			<groupId>com.appjangle.rsm.client</groupId>
+			<artifactId>rsmClient</artifactId>
 			<version>[0.0.1,)</version>
 		</dependency>
 
-		<dependency>
-			<groupId>io.nextweb.core</groupId>
-			<artifactId>nextweb-java</artifactId>
-			<version>[0.0.1,)</version>
-		</dependency>
 
 		<dependency>
 			<groupId>junit</groupId>
