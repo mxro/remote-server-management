@@ -1,10 +1,10 @@
 package com.appjangle.rsm.server.internal;
 
 import io.nextweb.Link;
-import io.nextweb.Node;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
 import io.nextweb.common.Monitor;
+import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
 import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
@@ -40,10 +40,10 @@ public class RsmServerComponent implements ServerComponent {
 				conf.getCommandsNodeSecret());
 
 		final Result<Monitor> monitorResult = commands.monitor(Interval.FAST,
-				new Closure<Node>() {
+				new Closure<MonitorContext>() {
 
 					@Override
-					public void apply(final Node o) {
+					public void apply(final MonitorContext ctx) {
 
 					}
 				});
