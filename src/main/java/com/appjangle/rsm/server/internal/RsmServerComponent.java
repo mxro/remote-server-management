@@ -59,6 +59,14 @@ public class RsmServerComponent implements ServerComponent {
 
 				});
 
+		monitorResult.catchExceptions(new ExceptionListener() {
+
+			@Override
+			public void onFailure(final ExceptionResult r) {
+				callback.onFailure(r.exception());
+			}
+		});
+
 		monitorResult.get(new Closure<Monitor>() {
 
 			@Override
@@ -66,8 +74,10 @@ public class RsmServerComponent implements ServerComponent {
 				monitor = o;
 				starting = false;
 				started = true;
+				callback.onStarted();
 			}
 		});
+
 	}
 
 	private void processRequests(final Node node) {
@@ -166,26 +176,29 @@ public class RsmServerComponent implements ServerComponent {
 			}
 		}
 
-		if (monitor != null) {
-			monitor.stop().get();
-		}
-
-		final Result<Success> result = session.close();
-		result.catchExceptions(new ExceptionListener() {
-
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(r.exception());
-			}
-		});
-		result.get(new Closure<Success>() {
+		monitor.stop().get(new Closure<Success>() {
 
 			@Override
 			public void apply(final Success o) {
-				started = false;
-				callback.onShutdownComplete();
+				final Result<Success> result = session.close();
+				result.catchExceptions(new ExceptionListener() {
+
+					@Override
+					public void onFailure(final ExceptionResult r) {
+						callback.onFailure(r.exception());
+					}
+				});
+				result.get(new Closure<Success>() {
+
+					@Override
+					public void apply(final Success o) {
+						started = false;
+						callback.onShutdownComplete();
+					}
+				});
 			}
 		});
+
 	}
 
 	@Override
