@@ -17,6 +17,9 @@ import io.nextweb.operations.exceptions.ImpossibleListener;
 import io.nextweb.operations.exceptions.ImpossibleResult;
 
 import com.appjangle.rsm.client.commands.ComponentCommand;
+import com.appjangle.rsm.client.commands.OperationCallback;
+import com.appjangle.rsm.client.commands.v01.FailureResponse;
+import com.appjangle.rsm.client.commands.v01.SuccessResponse;
 import com.appjangle.rsm.server.RsmServerConfiguration;
 
 import de.mxro.server.ComponentConfiguration;
@@ -114,7 +117,39 @@ public class RsmServerComponent implements ServerComponent {
 
 	}
 
+	/**
+	 * Performing command for server and posting response to response node
+	 * specified by client.
+	 * 
+	 * @param command
+	 */
 	private void processCommand(final ComponentCommand command) {
+
+		final Link responseNode = session.node(command.getResponsePort()
+				.getUri(), command.getResponsePort().getSecret());
+
+		conf.getExecutor().perform(command.forId(), command.getOperation(),
+				new OperationCallback() {
+
+					@Override
+					public void onSuccess() {
+						final SuccessResponse successResponse = new SuccessResponse();
+						responseNode.append(successResponse);
+
+						session.commit();
+					}
+
+					@Override
+					public void onFailure(final Throwable t) {
+						final FailureResponse failureResponse = new FailureResponse();
+						failureResponse.setException(t);
+
+						responseNode.appendSafe(failureResponse);
+
+						session.commit();
+
+					}
+				});
 
 	}
 
