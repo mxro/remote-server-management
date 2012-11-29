@@ -1,6 +1,8 @@
 package com.appjangle.rsm.server.internal;
 
 import io.nextweb.Link;
+import io.nextweb.Node;
+import io.nextweb.NodeList;
 import io.nextweb.Session;
 import io.nextweb.common.Interval;
 import io.nextweb.common.Monitor;
@@ -11,7 +13,6 @@ import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
-import one.utils.server.ShutdownCallback;
 
 import com.appjangle.rsm.server.RsmServerConfiguration;
 
@@ -23,17 +24,18 @@ import de.mxro.server.StartCallback;
 public class RsmServerComponent implements ServerComponent {
 
 	private volatile boolean started = false;
+	private volatile boolean starting = false;
 	Session session;
 	RsmServerConfiguration conf;
 	Monitor monitor;
 
 	@Override
 	public void start(final StartCallback callback) {
-		if (started) {
+		if (started || starting) {
 			throw new IllegalStateException(
 					"Cannot start an already started component.");
 		}
-		started = true;
+		starting = true;
 
 		session = Nextweb.createSession();
 
@@ -45,8 +47,9 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void apply(final MonitorContext ctx) {
-
+						processRequests(ctx.node());
 					}
+
 				});
 
 		monitorResult.get(new Closure<Monitor>() {
@@ -54,15 +57,47 @@ public class RsmServerComponent implements ServerComponent {
 			@Override
 			public void apply(final Monitor o) {
 				monitor = o;
+				starting = false;
+				started = true;
 			}
 		});
 	}
 
+	private void processRequests(final Node node) {
+
+		node.selectAll().get(new Closure<NodeList>() {
+
+			@Override
+			public void apply(final NodeList o) {
+
+				processRequests(o);
+
+			}
+		});
+
+	}
+
+	private void processRequests(final NodeList o) {
+		
+		for (final Object child : o.values()) {
+			
+			if (child instanceof )
+			
+		}
+		
+	}
+
 	@Override
 	public void stop(final de.mxro.server.ShutdownCallback callback) {
-		if (!started) {
+		if (!(started || starting)) {
 			throw new IllegalStateException(
 					"Cannot stop an already stopped component.");
+		}
+
+		if (starting) {
+			while (!started) {
+
+			}
 		}
 
 		if (monitor != null) {
