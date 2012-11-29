@@ -11,13 +11,14 @@ import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
-import one.utils.server.ComponentConfiguration;
-import one.utils.server.ComponentContext;
-import one.utils.server.ServerComponent;
 import one.utils.server.ShutdownCallback;
-import one.utils.server.StartCallback;
 
 import com.appjangle.rsm.server.RsmServerConfiguration;
+
+import de.mxro.server.ComponentConfiguration;
+import de.mxro.server.ComponentContext;
+import de.mxro.server.ServerComponent;
+import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
@@ -98,7 +99,6 @@ public class RsmServerComponent implements ServerComponent {
 
 	@Override
 	public ComponentConfiguration getConfiguration() {
-
 		return conf;
 	}
 

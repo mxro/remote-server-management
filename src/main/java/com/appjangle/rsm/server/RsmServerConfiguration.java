@@ -1,6 +1,6 @@
 package com.appjangle.rsm.server;
 
-import one.utils.server.ComponentConfiguration;
+import de.mxro.server.ComponentConfiguration;
 
 public interface RsmServerConfiguration extends ComponentConfiguration {
 

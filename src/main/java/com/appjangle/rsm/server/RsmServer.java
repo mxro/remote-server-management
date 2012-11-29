@@ -1,8 +1,9 @@
 package com.appjangle.rsm.server;
 
-import one.utils.server.ServerComponent;
 
 import com.appjangle.rsm.server.internal.RsmServerComponent;
+
+import de.mxro.server.ServerComponent;
 
 public class RsmServer {
 
