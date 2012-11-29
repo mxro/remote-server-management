@@ -59,7 +59,7 @@ public class RsmServerComponent implements ServerComponent {
 	}
 
 	@Override
-	public void stop(final ShutdownCallback callback) {
+	public void stop(final de.mxro.server.ShutdownCallback callback) {
 		if (!started) {
 			throw new IllegalStateException(
 					"Cannot stop an already stopped component.");
