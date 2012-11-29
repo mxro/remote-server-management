@@ -11,6 +11,6 @@ public interface RsmServerConfiguration extends ComponentConfiguration {
 	 */
 	public String getCommandsNode();
 
-	public String getCommandsNodeString();
+	public String getCommandsNodeSecret();
 
 }
