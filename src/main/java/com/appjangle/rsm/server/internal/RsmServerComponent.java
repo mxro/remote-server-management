@@ -15,6 +15,8 @@ import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
 import io.nextweb.operations.exceptions.ImpossibleListener;
 import io.nextweb.operations.exceptions.ImpossibleResult;
+import io.nextweb.operations.exceptions.UndefinedListener;
+import io.nextweb.operations.exceptions.UndefinedResult;
 
 import com.appjangle.rsm.client.commands.ComponentCommand;
 import com.appjangle.rsm.client.commands.OperationCallback;
@@ -31,6 +33,7 @@ public class RsmServerComponent implements ServerComponent {
 
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
+
 	Session session;
 	RsmServerConfiguration conf;
 	Monitor monitor;
@@ -109,6 +112,7 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void onImpossible(final ImpossibleResult ir) {
+
 						// some other process might have processed this item
 					}
 				});
@@ -117,7 +121,27 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void apply(final Success o) {
-						processCommand(command);
+						final Link responseNode = session.node(command
+								.getResponsePort().getUri(), command
+								.getResponsePort().getSecret());
+
+						responseNode.catchUndefined(new UndefinedListener() {
+
+							@Override
+							public void onUndefined(final UndefinedResult r) {
+								throw new RuntimeException(
+										"Response node has not been defined correctly.");
+							}
+						});
+
+						responseNode.get(new Closure<Node>() {
+
+							@Override
+							public void apply(final Node o) {
+								processCommand(command, o);
+							}
+						});
+
 					}
 				});
 
@@ -133,10 +157,8 @@ public class RsmServerComponent implements ServerComponent {
 	 * 
 	 * @param command
 	 */
-	private void processCommand(final ComponentCommand command) {
-
-		final Link responseNode = session.node(command.getResponsePort()
-				.getUri(), command.getResponsePort().getSecret());
+	private void processCommand(final ComponentCommand command,
+			final Node responseNode) {
 
 		conf.getExecutor().perform(command.forId(), command.getOperation(),
 				new OperationCallback() {
@@ -144,7 +166,7 @@ public class RsmServerComponent implements ServerComponent {
 					@Override
 					public void onSuccess() {
 						final SuccessResponse successResponse = new SuccessResponse();
-						responseNode.append(successResponse);
+						responseNode.appendSafe(successResponse);
 
 						session.commit();
 					}
@@ -180,6 +202,7 @@ public class RsmServerComponent implements ServerComponent {
 
 			@Override
 			public void apply(final Success o) {
+
 				final Result<Success> result = session.close();
 				result.catchExceptions(new ExceptionListener() {
 
@@ -192,6 +215,7 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void apply(final Success o) {
+
 						started = false;
 						callback.onShutdownComplete();
 					}
