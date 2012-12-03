@@ -1,6 +1,7 @@
 package com.appjangle.rsm.server;
 
 import de.mxro.server.ComponentConfiguration;
+import de.mxro.server.ComponentContext;
 
 public interface RsmServerConfiguration extends ComponentConfiguration {
 
@@ -9,7 +10,7 @@ public interface RsmServerConfiguration extends ComponentConfiguration {
 	 * 
 	 * @return
 	 */
-	public OperationExecutor getExecutor();
+	public OperationExecutor getExecutor(ComponentContext context);
 
 	/**
 	 * The URI of the node, at which commands will be posted.

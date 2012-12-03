@@ -38,6 +38,7 @@ public class RsmServerComponent implements ServerComponent {
 	RsmServerConfiguration conf;
 	Monitor monitor;
 	Link commands;
+	private ComponentContext context;
 
 	@Override
 	public void start(final StartCallback callback) {
@@ -160,8 +161,8 @@ public class RsmServerComponent implements ServerComponent {
 	private void processCommand(final ComponentCommand command,
 			final Node responseNode) {
 
-		conf.getExecutor().perform(command.forId(), command.getOperation(),
-				new OperationCallback() {
+		conf.getExecutor(context).perform(command.forId(),
+				command.getOperation(), new OperationCallback() {
 
 					@Override
 					public void onSuccess() {
@@ -232,7 +233,7 @@ public class RsmServerComponent implements ServerComponent {
 
 	@Override
 	public void injectContext(final ComponentContext context) {
-		// not required
+		this.context = context;
 	}
 
 	@Override
