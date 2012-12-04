@@ -13,9 +13,15 @@ public interface RsmServerConfiguration extends ComponentConfiguration {
 	public OperationExecutor getExecutor(ComponentContext context);
 
 	/**
+	 * <p>
 	 * The URI of the node, at which commands will be posted.
+	 * </p>
 	 * 
-	 * @return
+	 * @see <a
+	 *      href="http://architects.dzone.com/articles/design-patterns-test-time-7">Command
+	 *      Design pattern</a>
+	 * 
+	 * @return URI of command node
 	 */
 	public String getCommandsNode();
 
