@@ -21,6 +21,11 @@
 		<module.draftCompile>true</module.draftCompile>
 		<module.importedPackages>
 			org.junit,
+			io.nextweb.operations,
+			io.nextweb.operations.callbacks,
+			io.nextweb.operations.entity,
+			io.nextweb.operations.entitylist,
+			io.nextweb.plugins,
 			*
 		</module.importedPackages>
 		<module.exportedPackages>!com.appjangle.rsm.server.internal*,
