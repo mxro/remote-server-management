@@ -58,6 +58,7 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void apply(final MonitorContext ctx) {
+
 						processRequests(ctx.node());
 					}
 
@@ -75,6 +76,7 @@ public class RsmServerComponent implements ServerComponent {
 
 			@Override
 			public void apply(final Monitor o) {
+
 				monitor = o;
 				starting = false;
 				started = true;
@@ -105,7 +107,7 @@ public class RsmServerComponent implements ServerComponent {
 			final Object value = child.value();
 			if (value instanceof ComponentCommand) {
 				final ComponentCommand command = (ComponentCommand) value;
-
+				System.out.println("process: " + command.getOperation());
 				final Result<Success> removeRequest = commands
 						.removeSafe(child);
 
