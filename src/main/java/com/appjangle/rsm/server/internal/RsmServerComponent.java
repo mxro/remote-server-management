@@ -92,9 +92,7 @@ public class RsmServerComponent implements ServerComponent {
 
 			@Override
 			public void apply(final NodeList o) {
-
 				processRequests(o);
-
 			}
 		});
 
@@ -107,7 +105,7 @@ public class RsmServerComponent implements ServerComponent {
 			final Object value = child.value();
 			if (value instanceof ComponentCommand) {
 				final ComponentCommand command = (ComponentCommand) value;
-				System.out.println("process: " + command.getOperation());
+
 				final Result<Success> removeRequest = commands
 						.removeSafe(child);
 
@@ -172,6 +170,7 @@ public class RsmServerComponent implements ServerComponent {
 						responseNode.appendSafe(successResponse);
 
 						session.commit();
+
 					}
 
 					@Override
