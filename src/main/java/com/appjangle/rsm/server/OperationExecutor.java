@@ -20,15 +20,12 @@ public interface OperationExecutor {
 	/**
 	 * This method is called to perform the specified operation on the server.
 	 * 
-	 * @param forId
-	 *            For which server component the operation is to be performed
 	 * @param operation
 	 *            Which operation is to be performed
 	 * @param callback
 	 *            Callback to be called if operation is completed.
 	 * 
 	 */
-	public void perform(String forId, ComponentOperation operation,
-			OperationCallback callback);
+	public void perform(ComponentOperation operation, OperationCallback callback);
 
 }
