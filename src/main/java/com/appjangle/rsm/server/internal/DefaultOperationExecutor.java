@@ -4,6 +4,7 @@ import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 import com.appjangle.rsm.server.OperationExecutor;
 
+import de.mxro.server.ComponentContext;
 import de.mxro.server.manager.ComponentManager;
 
 public class DefaultOperationExecutor implements OperationExecutor {
@@ -12,9 +13,9 @@ public class DefaultOperationExecutor implements OperationExecutor {
 
 	@Override
 	public void perform(final ComponentOperation operation,
-			final OperationCallback callback) {
+			final ComponentContext context, final OperationCallback callback) {
 
-		operation.perform(manager, callback);
+		operation.perform(manager, context, callback);
 	}
 
 	public DefaultOperationExecutor(final ComponentManager manager) {

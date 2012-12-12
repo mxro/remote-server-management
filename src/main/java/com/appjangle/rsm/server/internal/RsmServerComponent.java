@@ -161,7 +161,7 @@ public class RsmServerComponent implements ServerComponent {
 	private void processCommand(final ComponentCommand command,
 			final Node responseNode) {
 
-		conf.getExecutor(context).perform(command.getOperation(),
+		conf.getExecutor(context).perform(command.getOperation(), context,
 				new OperationCallback() {
 
 					@Override

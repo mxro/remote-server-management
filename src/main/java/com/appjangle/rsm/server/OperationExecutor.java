@@ -3,6 +3,8 @@ package com.appjangle.rsm.server;
 import com.appjangle.rsm.client.commands.ComponentOperation;
 import com.appjangle.rsm.client.commands.OperationCallback;
 
+import de.mxro.server.ComponentContext;
+
 /**
  * <p>
  * This service does the actual work of performing the operations on a server.
@@ -26,6 +28,7 @@ public interface OperationExecutor {
 	 *            Callback to be called if operation is completed.
 	 * 
 	 */
-	public void perform(ComponentOperation operation, OperationCallback callback);
+	public void perform(ComponentOperation operation, ComponentContext context,
+			OperationCallback callback);
 
 }
