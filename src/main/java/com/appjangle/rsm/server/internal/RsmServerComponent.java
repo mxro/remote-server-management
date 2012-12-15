@@ -53,12 +53,14 @@ public class RsmServerComponent implements ServerComponent {
 		commands = session.node(conf.getCommandsNode(),
 				conf.getCommandsNodeSecret());
 
+		// System.out.println("start monitoring: " + conf.getCommandsNode());
+
 		final Result<Monitor> monitorResult = commands.monitor(Interval.FAST,
 				new Closure<MonitorContext>() {
 
 					@Override
 					public void apply(final MonitorContext ctx) {
-
+						// System.out.println("change detected");
 						processRequests(ctx.node());
 					}
 
