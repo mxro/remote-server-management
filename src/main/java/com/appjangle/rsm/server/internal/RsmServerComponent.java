@@ -110,9 +110,10 @@ public class RsmServerComponent implements ServerComponent {
 
 			@Override
 			public void apply(final NodeList o) {
-				scheduled.add(o);
 
 				synchronized (processing) {
+					scheduled.add(o);
+
 					if (!processing) {
 						processScheduled();
 					}
@@ -135,6 +136,8 @@ public class RsmServerComponent implements ServerComponent {
 			}
 
 			final NodeList o = scheduled.get(0);
+
+			scheduled.remove(0);
 
 			processRequests(o, new RequestsProcessedCallback() {
 
