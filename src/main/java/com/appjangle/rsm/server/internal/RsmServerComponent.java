@@ -139,13 +139,11 @@ public class RsmServerComponent implements ServerComponent {
 
 			scheduled.remove(0);
 
-			System.out.println("processing: " + o.size() + " " + o.asList());
-
 			processRequests(o, new RequestsProcessedCallback() {
 
 				@Override
 				public void onDone() {
-					System.out.println("DONE");
+
 					processScheduled();
 				}
 			});
