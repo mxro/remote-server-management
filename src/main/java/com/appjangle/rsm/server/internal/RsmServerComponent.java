@@ -18,6 +18,12 @@ import io.nextweb.operations.exceptions.ImpossibleResult;
 import io.nextweb.operations.exceptions.UndefinedListener;
 import io.nextweb.operations.exceptions.UndefinedResult;
 
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+
+import one.async.joiner.CallbackLatch;
+
 import com.appjangle.rsm.client.commands.ComponentCommand;
 import com.appjangle.rsm.client.commands.OperationCallback;
 import com.appjangle.rsm.client.commands.v01.FailureResponse;
@@ -60,7 +66,7 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void apply(final MonitorContext ctx) {
-						// System.out.println("change detected");
+
 						processRequests(ctx.node());
 					}
 
@@ -88,19 +94,73 @@ public class RsmServerComponent implements ServerComponent {
 
 	}
 
+	private static interface RequestsProcessedCallback {
+
+		public void onDone();
+
+	}
+
+	private final List<NodeList> scheduled = Collections
+			.synchronizedList(new LinkedList<NodeList>());
+	private Boolean processing = false;
+
 	private void processRequests(final Node node) {
 
 		node.selectAll().get(new Closure<NodeList>() {
 
 			@Override
 			public void apply(final NodeList o) {
-				processRequests(o);
+				scheduled.add(o);
+
+				synchronized (processing) {
+					if (!processing) {
+						processScheduled();
+					}
+				}
+
 			}
 		});
 
 	}
 
-	private void processRequests(final NodeList o) {
+	protected void processScheduled() {
+
+		synchronized (processing) {
+
+			processing = true;
+
+			if (scheduled.size() == 0) {
+				processing = false;
+				return;
+			}
+
+			final NodeList o = scheduled.get(0);
+
+			processRequests(o, new RequestsProcessedCallback() {
+
+				@Override
+				public void onDone() {
+					processScheduled();
+				}
+			});
+		}
+	}
+
+	private void processRequests(final NodeList o,
+			final RequestsProcessedCallback requestsProcessedCallback) {
+
+		final CallbackLatch latch = new CallbackLatch(o.nodes().size()) {
+
+			@Override
+			public void onFailed(final Throwable t) {
+				requestsProcessedCallback.onDone();
+			}
+
+			@Override
+			public void onCompleted() {
+				requestsProcessedCallback.onDone();
+			}
+		};
 
 		for (final Node child : o.nodes()) {
 
@@ -115,7 +175,7 @@ public class RsmServerComponent implements ServerComponent {
 
 					@Override
 					public void onImpossible(final ImpossibleResult ir) {
-
+						latch.registerSuccess();
 						// some other process might have processed this item
 					}
 				});
@@ -132,6 +192,7 @@ public class RsmServerComponent implements ServerComponent {
 
 							@Override
 							public void onUndefined(final UndefinedResult r) {
+								latch.registerSuccess();
 								throw new RuntimeException(
 										"Response node has not been defined correctly.");
 							}
@@ -141,7 +202,14 @@ public class RsmServerComponent implements ServerComponent {
 
 							@Override
 							public void apply(final Node o) {
-								processCommand(command, o);
+								processCommand(command, o,
+										new RequestsProcessedCallback() {
+
+											@Override
+											public void onDone() {
+												latch.registerSuccess();
+											}
+										});
 							}
 						});
 
@@ -159,9 +227,11 @@ public class RsmServerComponent implements ServerComponent {
 	 * specified by client.
 	 * 
 	 * @param command
+	 * @param requestsProcessedCallback
 	 */
 	private void processCommand(final ComponentCommand command,
-			final Node responseNode) {
+			final Node responseNode,
+			final RequestsProcessedCallback requestsProcessedCallback) {
 
 		conf.getExecutor(context).perform(command.getOperation(), context,
 				new OperationCallback() {
@@ -172,7 +242,7 @@ public class RsmServerComponent implements ServerComponent {
 						responseNode.appendSafe(successResponse);
 
 						session.commit();
-
+						requestsProcessedCallback.onDone();
 					}
 
 					@Override
@@ -183,6 +253,7 @@ public class RsmServerComponent implements ServerComponent {
 						responseNode.appendSafe(failureResponse);
 
 						session.commit();
+						requestsProcessedCallback.onDone();
 
 					}
 				});

@@ -40,13 +40,18 @@
 	<dependencies>
 
 
-		
+
 		<dependency>
 			<groupId>com.appjangle.rsm.client</groupId>
 			<artifactId>rsmClient</artifactId>
 			<version>[0.0.1,)</version>
 		</dependency>
 
+		<dependency>
+			<groupId>one.async</groupId>
+			<artifactId>oneAsync</artifactId>
+			<version>[0.0.1,)</version>
+		</dependency>
 
 		<dependency>
 			<groupId>junit</groupId>
