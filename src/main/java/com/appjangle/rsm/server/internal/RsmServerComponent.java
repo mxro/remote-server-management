@@ -139,10 +139,13 @@ public class RsmServerComponent implements ServerComponent {
 
 			scheduled.remove(0);
 
+			System.out.println("processing: " + o.size() + " " + o.asList());
+
 			processRequests(o, new RequestsProcessedCallback() {
 
 				@Override
 				public void onDone() {
+					System.out.println("DONE");
 					processScheduled();
 				}
 			});
@@ -168,6 +171,12 @@ public class RsmServerComponent implements ServerComponent {
 		for (final Node child : o.nodes()) {
 
 			final Object value = child.value();
+
+			if (!(value instanceof ComponentCommand)) {
+				latch.registerSuccess();
+				continue;
+			}
+
 			if (value instanceof ComponentCommand) {
 				final ComponentCommand command = (ComponentCommand) value;
 
