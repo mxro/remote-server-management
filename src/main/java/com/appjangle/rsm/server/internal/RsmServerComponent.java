@@ -21,6 +21,7 @@ import io.nextweb.operations.exceptions.UndefinedResult;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import one.async.joiner.CallbackLatch;
 
@@ -37,8 +38,14 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
+	private static boolean ENABLE_LOG = true;
+
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
+
+	private final List<NodeList> scheduled = Collections
+			.synchronizedList(new LinkedList<NodeList>());
+	private final AtomicBoolean processing = new AtomicBoolean(false);
 
 	Session session;
 	RsmServerConfiguration conf;
@@ -59,13 +66,22 @@ public class RsmServerComponent implements ServerComponent {
 		commands = session.node(conf.getCommandsNode(),
 				conf.getCommandsNodeSecret());
 
-		// System.out.println("start monitoring: " + conf.getCommandsNode());
+		if (ENABLE_LOG) {
+			System.out.println(this + ": Start monitoring: "
+					+ conf.getCommandsNode());
+		}
 
 		final Result<Monitor> monitorResult = commands.monitor(Interval.FAST,
 				new Closure<MonitorContext>() {
 
 					@Override
 					public void apply(final MonitorContext ctx) {
+
+						if (ENABLE_LOG) {
+							System.out
+									.println(this
+											+ ": Change detected, processing requests.");
+						}
 
 						processRequests(ctx.node());
 					}
@@ -88,6 +104,20 @@ public class RsmServerComponent implements ServerComponent {
 				monitor = o;
 				starting = false;
 				started = true;
+
+				commands.get(new Closure<Node>() {
+
+					@Override
+					public void apply(final Node o) {
+						if (ENABLE_LOG) {
+							System.out.println(this
+									+ ": Processing initial requests.");
+						}
+						// processing requests available on startup
+						processRequests(o);
+					}
+				});
+
 				callback.onStarted();
 			}
 		});
@@ -100,10 +130,6 @@ public class RsmServerComponent implements ServerComponent {
 
 	}
 
-	private final List<NodeList> scheduled = Collections
-			.synchronizedList(new LinkedList<NodeList>());
-	private Boolean processing = false;
-
 	private void processRequests(final Node node) {
 
 		node.selectAll().get(new Closure<NodeList>() {
@@ -111,43 +137,70 @@ public class RsmServerComponent implements ServerComponent {
 			@Override
 			public void apply(final NodeList o) {
 
-				synchronized (processing) {
-					scheduled.add(o);
-
-					if (!processing) {
-						processScheduled();
-					}
+				scheduled.add(o);
+				if (ENABLE_LOG) {
+					System.out.println(this + ": Add to scheduled: "
+							+ o.values());
 				}
+
+				processScheduled();
 
 			}
 		});
 
 	}
 
-	protected void processScheduled() {
-
+	protected void processScheduledGuarded() {
 		synchronized (processing) {
 
-			processing = true;
-
-			if (scheduled.size() == 0) {
-				processing = false;
+			if (processing.get()) {
+				if (ENABLE_LOG) {
+					System.out
+							.println(this
+									+ ": Skip processing because process already running.");
+				}
 				return;
 			}
 
-			final NodeList o = scheduled.get(0);
+			processing.set(true);
 
-			scheduled.remove(0);
-
-			processRequests(o, new RequestsProcessedCallback() {
-
-				@Override
-				public void onDone() {
-
-					processScheduled();
-				}
-			});
 		}
+
+		processScheduled();
+	}
+
+	protected void processScheduled() {
+		if (scheduled.size() == 0) {
+			processing.set(false);
+			if (ENABLE_LOG) {
+				System.out.println(this + ": All pending operation cleared");
+			}
+			return;
+		}
+
+		final NodeList o = scheduled.get(0);
+		final List<Object> values = o.values();
+		if (ENABLE_LOG) {
+
+			System.out.println(this + ": Processing: " + values);
+		}
+
+		scheduled.remove(0);
+
+		processRequests(o, new RequestsProcessedCallback() {
+
+			@Override
+			public void onDone() {
+
+				if (ENABLE_LOG) {
+					System.out.println(this + ": Completed processing: "
+							+ values);
+				}
+
+				processScheduled();
+			}
+		});
+
 	}
 
 	private void processRequests(final NodeList o,
@@ -279,7 +332,13 @@ public class RsmServerComponent implements ServerComponent {
 
 		if (starting) {
 			while (!started) {
+				Thread.yield();
+			}
+		}
 
+		while (processing.get()) {
+			while (processing.get()) {
+				Thread.yield();
 			}
 		}
 
