@@ -179,13 +179,13 @@ public class RsmServerComponent implements ServerComponent {
 		}
 
 		final NodeList o = scheduled.get(0);
+		scheduled.remove(0);
+
 		final List<Object> values = o.values();
 		if (ENABLE_LOG) {
 
 			System.out.println(this + ": Processing: " + values);
 		}
-
-		scheduled.remove(0);
 
 		processRequests(o, new RequestsProcessedCallback() {
 
