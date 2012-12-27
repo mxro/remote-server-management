@@ -38,7 +38,7 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
-	private static boolean ENABLE_LOG = false;
+	private static boolean ENABLE_LOG = true;
 
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
@@ -256,8 +256,12 @@ public class RsmServerComponent implements ServerComponent {
 							@Override
 							public void onUndefined(final UndefinedResult r) {
 								latch.registerSuccess();
-								throw new RuntimeException(
-										"Response node has not been defined correctly.");
+
+								System.out
+										.println(this
+												+ ": Unexpected error. Response node has not been defined correctly.");
+								// throw new RuntimeException(
+								// "Response node has not been defined correctly.");
 							}
 						});
 
