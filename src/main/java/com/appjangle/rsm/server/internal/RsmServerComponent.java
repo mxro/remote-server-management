@@ -336,11 +336,7 @@ public class RsmServerComponent implements ServerComponent {
 			}
 		}
 
-		while (processing.get()) {
-			while (processing.get()) {
-				Thread.yield();
-			}
-		}
+		waitForProcessingToStop();
 
 		monitor.stop().get(new Closure<Success>() {
 
@@ -367,6 +363,17 @@ public class RsmServerComponent implements ServerComponent {
 			}
 		});
 
+	}
+
+	private void waitForProcessingToStop() {
+		while (processing.get()) {
+			try {
+				Thread.sleep(100);
+			} catch (final InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+			Thread.yield();
+		}
 	}
 
 	@Override
