@@ -6,6 +6,11 @@ import de.mxro.server.ServerComponent;
 
 public class RsmComponents {
 
+	/**
+	 * Component that can be used for is-alive tests on a rsm server.
+	 * 
+	 * @return
+	 */
 	public static ServerComponent createDoNothingComponent() {
 		return new DoNothingComponent();
 	}
