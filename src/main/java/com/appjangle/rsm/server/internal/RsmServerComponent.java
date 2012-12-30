@@ -10,6 +10,7 @@ import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
 import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
+import io.nextweb.fn.IntegerResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
@@ -215,7 +216,25 @@ public class RsmServerComponent implements ServerComponent {
 
 			@Override
 			public void onCompleted() {
-				requestsProcessedCallback.onDone();
+				final IntegerResult clearVersionsRequest = commands
+						.clearVersions(10);
+
+				clearVersionsRequest.catchExceptions(new ExceptionListener() {
+
+					@Override
+					public void onFailure(final ExceptionResult r) {
+						requestsProcessedCallback.onDone();
+					}
+				});
+
+				clearVersionsRequest.get(new Closure<Integer>() {
+
+					@Override
+					public void apply(final Integer o) {
+						requestsProcessedCallback.onDone();
+					}
+				});
+
 			}
 		};
 
@@ -269,6 +288,7 @@ public class RsmServerComponent implements ServerComponent {
 
 							@Override
 							public void apply(final Node o) {
+
 								processCommand(command, o,
 										new RequestsProcessedCallback() {
 
