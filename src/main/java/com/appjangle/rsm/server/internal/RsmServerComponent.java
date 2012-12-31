@@ -39,7 +39,7 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
-	private static boolean ENABLE_LOG = false;
+	private static boolean ENABLE_LOG = true;
 
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
@@ -333,6 +333,12 @@ public class RsmServerComponent implements ServerComponent {
 
 									@Override
 									public void onDone() {
+										if (ENABLE_LOG) {
+											System.out
+													.println(this
+															+ ": Command processed for "
+															+ childUri);
+										}
 										latch.registerSuccess();
 									}
 								});
