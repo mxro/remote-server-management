@@ -97,10 +97,20 @@ public class RsmServerComponent implements ServerComponent {
 			}
 		});
 
+		if (ENABLE_LOG) {
+			System.out.println(this + ": Starting monitor.");
+		}
+
 		monitorResult.get(new Closure<Monitor>() {
 
 			@Override
 			public void apply(final Monitor o) {
+
+				if (ENABLE_LOG) {
+					System.out.println(this + ": Monitor started.");
+				}
+
+				callback.onStarted();
 
 				monitor = o;
 				starting = false;
@@ -119,7 +129,6 @@ public class RsmServerComponent implements ServerComponent {
 					}
 				});
 
-				callback.onStarted();
 			}
 		});
 
@@ -262,10 +271,21 @@ public class RsmServerComponent implements ServerComponent {
 					}
 				});
 
+				if (ENABLE_LOG) {
+					System.out.println(this
+							+ ": Attempting to remove request for " + child);
+				}
+
 				removeRequest.get(new Closure<Success>() {
 
 					@Override
 					public void apply(final Success o) {
+						if (ENABLE_LOG) {
+							System.out
+									.println(this
+											+ ": Remove request successfully completed for "
+											+ child);
+						}
 						final Link responseNode = session.node(command
 								.getResponsePort().getUri(), command
 								.getResponsePort().getSecret());
@@ -288,6 +308,13 @@ public class RsmServerComponent implements ServerComponent {
 
 							@Override
 							public void apply(final Node o) {
+
+								if (ENABLE_LOG) {
+									System.out
+											.println(this
+													+ ": Remove command and loaded response node for: "
+													+ child);
+								}
 
 								processCommand(command, o,
 										new RequestsProcessedCallback() {
