@@ -349,48 +349,89 @@ public class RsmServerComponent implements ServerComponent {
 
 	@Override
 	public void stop(final de.mxro.server.ShutdownCallback callback) {
-		if (!(started || starting)) {
-			throw new IllegalStateException(
-					"Cannot stop an already stopped component.");
-		}
+		assertServerNotStopped();
 
-		if (starting) {
-			while (!started) {
-				Thread.yield();
-			}
-		}
+		waitForStartupToBeCompleted();
 
 		waitForProcessingToStop();
 
-		monitor.stop().get(new Closure<Success>() {
+		stopSessionAndMonitor(callback);
+
+	}
+
+	private void stopSessionAndMonitor(
+			final de.mxro.server.ShutdownCallback callback) {
+		final Result<Success> stopRequest = monitor.stop();
+
+		stopRequest.catchExceptions(new ExceptionListener() {
+
+			@Override
+			public void onFailure(final ExceptionResult r) {
+				callback.onFailure(r.exception());
+			}
+		});
+
+		stopRequest.get(new Closure<Success>() {
+
+			@Override
+			public void apply(final Success o) {
+				stopSession(callback);
+			}
+
+		});
+	}
+
+	private void stopSession(final de.mxro.server.ShutdownCallback callback) {
+		final Result<Success> result = session.close();
+		result.catchExceptions(new ExceptionListener() {
+
+			@Override
+			public void onFailure(final ExceptionResult r) {
+				callback.onFailure(r.exception());
+			}
+		});
+		result.get(new Closure<Success>() {
 
 			@Override
 			public void apply(final Success o) {
 
-				final Result<Success> result = session.close();
-				result.catchExceptions(new ExceptionListener() {
-
-					@Override
-					public void onFailure(final ExceptionResult r) {
-						callback.onFailure(r.exception());
-					}
-				});
-				result.get(new Closure<Success>() {
-
-					@Override
-					public void apply(final Success o) {
-
-						started = false;
-						callback.onShutdownComplete();
-					}
-				});
+				started = false;
+				callback.onShutdownComplete();
 			}
 		});
+	}
 
+	private void assertServerNotStopped() {
+		if (!(started || starting)) {
+			throw new IllegalStateException(
+					"Cannot stop an already stopped component.");
+		}
+	}
+
+	private void waitForStartupToBeCompleted() {
+		if (starting) {
+			while (!started) {
+				if (ENABLE_LOG) {
+					System.out
+							.println(this
+									+ ": Cannot stop because component is still starting");
+				}
+				try {
+					Thread.sleep(100);
+				} catch (final InterruptedException e) {
+					throw new RuntimeException(e);
+				}
+				Thread.yield();
+			}
+		}
 	}
 
 	private void waitForProcessingToStop() {
 		while (processing.get()) {
+			if (ENABLE_LOG) {
+				System.out.println(this
+						+ ": Cannot stop because server is processing/");
+			}
 			try {
 				Thread.sleep(100);
 			} catch (final InterruptedException e) {
