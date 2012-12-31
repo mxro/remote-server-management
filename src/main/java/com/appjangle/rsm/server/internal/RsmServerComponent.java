@@ -10,21 +10,11 @@ import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
 import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
-import io.nextweb.fn.IntegerResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
 
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import one.async.joiner.CallbackLatch;
-
-import com.appjangle.rsm.client.commands.ComponentCommand;
 import com.appjangle.rsm.server.RsmServerConfiguration;
-import com.appjangle.rsm.server.internal.CommandWorker.CommandProcessedCallback;
 
 import de.mxro.server.ComponentConfiguration;
 import de.mxro.server.ComponentContext;
@@ -38,15 +28,12 @@ public class RsmServerComponent implements ServerComponent {
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
 
-	private final List<NodeList> scheduled = Collections
-			.synchronizedList(new LinkedList<NodeList>());
-	private final AtomicBoolean processing = new AtomicBoolean(false);
-
 	Session session;
 	RsmServerConfiguration conf;
 	Monitor monitor;
 	Link commands;
 	ComponentContext context;
+	CommandListWorker worker;
 
 	@Override
 	public void start(final StartCallback callback) {
@@ -141,138 +128,16 @@ public class RsmServerComponent implements ServerComponent {
 			@Override
 			public void apply(final NodeList o) {
 
-				scheduled.add(o);
+				worker.addListToBeProcessed(o);
 				if (ENABLE_LOG) {
 					System.out.println(this + ": Add to scheduled: "
 							+ o.values());
 				}
 
-				processScheduled();
+				worker.startProcessingIfRequired();
 
 			}
 		});
-
-	}
-
-	protected void processScheduledGuarded() {
-		synchronized (processing) {
-
-			if (processing.get()) {
-				if (ENABLE_LOG) {
-					System.out
-							.println(this
-									+ ": Skip processing because process already running.");
-				}
-				return;
-			}
-
-			processing.set(true);
-
-		}
-
-		processScheduled();
-	}
-
-	protected void processScheduled() {
-		if (scheduled.size() == 0) {
-			processing.set(false);
-			if (ENABLE_LOG) {
-				System.out.println(this + ": All pending operation cleared");
-			}
-			return;
-		}
-
-		final NodeList o = scheduled.get(0);
-		scheduled.remove(0);
-
-		final List<Object> values = o.values();
-		if (ENABLE_LOG) {
-
-			System.out.println(this + ": Processing: " + values);
-		}
-
-		processRequests(o, new RequestsProcessedCallback() {
-
-			@Override
-			public void onDone() {
-
-				if (ENABLE_LOG) {
-					System.out.println(this + ": Completed processing: "
-							+ values);
-				}
-
-				processScheduled();
-			}
-		});
-
-	}
-
-	private void processRequests(final NodeList o,
-			final RequestsProcessedCallback requestsProcessedCallback) {
-
-		final CallbackLatch latch = new CallbackLatch(o.nodes().size()) {
-
-			@Override
-			public void onFailed(final Throwable t) {
-				requestsProcessedCallback.onDone();
-			}
-
-			@Override
-			public void onCompleted() {
-				final IntegerResult clearVersionsRequest = commands
-						.clearVersions(10);
-
-				clearVersionsRequest.catchExceptions(new ExceptionListener() {
-
-					@Override
-					public void onFailure(final ExceptionResult r) {
-						requestsProcessedCallback.onDone();
-					}
-				});
-
-				clearVersionsRequest.get(new Closure<Integer>() {
-
-					@Override
-					public void apply(final Integer o) {
-						requestsProcessedCallback.onDone();
-					}
-				});
-
-			}
-		};
-
-		for (final Node child : o.nodes()) {
-
-			final Object value = child.value();
-
-			final String childUri = child.uri();
-
-			if (!(value instanceof ComponentCommand)) {
-				latch.registerSuccess();
-				continue;
-			}
-
-			if (value instanceof ComponentCommand) {
-				new CommandWorker(conf, commands, session, context).process(
-						child, value, childUri, new CommandProcessedCallback() {
-
-							@Override
-							public void onSuccess() {
-								latch.registerSuccess();
-							}
-
-							@Override
-							public void onFailure(final Throwable t) {
-								latch.registerFail(t);
-							}
-						});
-
-				continue;
-			}
-
-			throw new IllegalStateException("Child of wrong type");
-
-		}
 
 	}
 
@@ -356,7 +221,7 @@ public class RsmServerComponent implements ServerComponent {
 	}
 
 	private void waitForProcessingToStop() {
-		while (processing.get()) {
+		while (worker.isWorking()) {
 			if (ENABLE_LOG) {
 				System.out.println(this
 						+ ": Cannot stop because server is processing/");
