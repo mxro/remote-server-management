@@ -110,8 +110,6 @@ public class RsmServerComponent implements ServerComponent {
 					System.out.println(this + ": Monitor started.");
 				}
 
-				callback.onStarted();
-
 				monitor = o;
 				starting = false;
 				started = true;
@@ -128,6 +126,8 @@ public class RsmServerComponent implements ServerComponent {
 						processRequests(o);
 					}
 				});
+
+				callback.onStarted();
 
 			}
 		});
@@ -251,6 +251,8 @@ public class RsmServerComponent implements ServerComponent {
 
 			final Object value = child.value();
 
+			final String childUri = child.uri();
+
 			if (!(value instanceof ComponentCommand)) {
 				latch.registerSuccess();
 				continue;
@@ -284,7 +286,7 @@ public class RsmServerComponent implements ServerComponent {
 							System.out
 									.println(this
 											+ ": Remove request successfully completed for "
-											+ child);
+											+ childUri);
 						}
 						final Link responseNode = session.node(command
 								.getResponsePort().getUri(), command
@@ -313,7 +315,7 @@ public class RsmServerComponent implements ServerComponent {
 									System.out
 											.println(this
 													+ ": Remove command and loaded response node for: "
-													+ child);
+													+ childUri);
 								}
 
 								processCommand(command, o,
