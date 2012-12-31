@@ -128,6 +128,11 @@ public class RsmServerComponent implements ServerComponent {
 			@Override
 			public void apply(final NodeList o) {
 
+				if (worker == null) {
+					worker = new CommandListWorker(commands, conf, session,
+							context);
+				}
+
 				worker.addListToBeProcessed(o);
 				if (ENABLE_LOG) {
 					System.out.println(this + ": Add to scheduled: "
@@ -221,7 +226,7 @@ public class RsmServerComponent implements ServerComponent {
 	}
 
 	private void waitForProcessingToStop() {
-		while (worker.isWorking()) {
+		while (worker != null && worker.isWorking()) {
 			if (ENABLE_LOG) {
 				System.out.println(this
 						+ ": Cannot stop because server is processing/");

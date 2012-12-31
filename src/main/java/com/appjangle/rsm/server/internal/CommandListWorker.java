@@ -9,6 +9,7 @@ import io.nextweb.fn.ExceptionListener;
 import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.IntegerResult;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,10 +28,9 @@ public class CommandListWorker {
 
 	private static boolean ENABLE_LOG = true;
 
-	private final AtomicBoolean processing = new AtomicBoolean(false);
+	private final AtomicBoolean processing;
 
-	private final List<NodeList> scheduled = Collections
-			.synchronizedList(new LinkedList<NodeList>());
+	private final List<NodeList> scheduled;
 	private final Link commands;
 	private final RsmServerConfiguration conf;
 	private final Session session;
@@ -85,7 +85,14 @@ public class CommandListWorker {
 			System.out.println(this + ": Processing: " + values);
 		}
 
-		processRequests(o, new RequestsProcessedCallback() {
+		final List<Node> toBeProcessed = filter(o);
+
+		if (toBeProcessed.size() == 0) {
+			processScheduled();
+			return;
+		}
+
+		processRequests(toBeProcessed, new RequestsProcessedCallback() {
 
 			@Override
 			public void onDone() {
@@ -101,10 +108,26 @@ public class CommandListWorker {
 
 	}
 
-	private void processRequests(final NodeList o,
+	private List<Node> filter(final NodeList o) {
+		final ArrayList<Node> filteredList = new ArrayList<Node>(o.size());
+
+		for (final Node child : o.nodes()) {
+
+			final Object value = child.value();
+
+			if ((value instanceof ComponentCommand)) {
+				filteredList.add(child);
+			}
+
+		}
+
+		return filteredList;
+	}
+
+	private void processRequests(final List<Node> o,
 			final RequestsProcessedCallback requestsProcessedCallback) {
 
-		final CallbackLatch latch = new CallbackLatch(o.nodes().size()) {
+		final CallbackLatch latch = new CallbackLatch(o.size()) {
 
 			@Override
 			public void onFailed(final Throwable t) {
@@ -115,6 +138,8 @@ public class CommandListWorker {
 			public void onCompleted() {
 				final IntegerResult clearVersionsRequest = commands
 						.clearVersions(10);
+
+				// System.out.println("all done");
 
 				clearVersionsRequest.catchExceptions(new ExceptionListener() {
 
@@ -128,6 +153,7 @@ public class CommandListWorker {
 
 					@Override
 					public void apply(final Integer o) {
+						// System.out.println("TRIGGER");
 						requestsProcessedCallback.onDone();
 					}
 				});
@@ -135,16 +161,11 @@ public class CommandListWorker {
 			}
 		};
 
-		for (final Node child : o.nodes()) {
+		for (final Node child : o) {
 
 			final Object value = child.value();
 
 			final String childUri = child.uri();
-
-			if (!(value instanceof ComponentCommand)) {
-				latch.registerSuccess();
-				continue;
-			}
 
 			if (value instanceof ComponentCommand) {
 				new CommandWorker(conf, commands, session, context).process(
@@ -178,6 +199,9 @@ public class CommandListWorker {
 		this.conf = conf;
 		this.session = session;
 		this.context = context;
+		this.processing = new AtomicBoolean(false);
+		this.scheduled = Collections
+				.synchronizedList(new LinkedList<NodeList>());
 	}
 
 }
