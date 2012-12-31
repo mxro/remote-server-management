@@ -39,7 +39,7 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
-	private static boolean ENABLE_LOG = true;
+	private static boolean ENABLE_LOG = false;
 
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
@@ -259,83 +259,88 @@ public class RsmServerComponent implements ServerComponent {
 			}
 
 			if (value instanceof ComponentCommand) {
-				final ComponentCommand command = (ComponentCommand) value;
+				prepareCommand(latch, child, value, childUri);
+				continue;
+			}
 
-				final Result<Success> removeRequest = commands
-						.removeSafe(child);
+			throw new IllegalStateException("Child of wrong type");
 
-				removeRequest.catchImpossible(new ImpossibleListener() {
+		}
+
+	}
+
+	private void prepareCommand(final CallbackLatch latch, final Node child,
+			final Object value, final String childUri) {
+		final ComponentCommand command = (ComponentCommand) value;
+
+		final Result<Success> removeRequest = commands.removeSafe(child);
+
+		removeRequest.catchImpossible(new ImpossibleListener() {
+
+			@Override
+			public void onImpossible(final ImpossibleResult ir) {
+				latch.registerSuccess();
+				// some other process might have processed this item
+			}
+		});
+
+		if (ENABLE_LOG) {
+			System.out.println(this + ": Attempting to remove request for "
+					+ child);
+		}
+
+		removeRequest.get(new Closure<Success>() {
+
+			@Override
+			public void apply(final Success o) {
+				if (ENABLE_LOG) {
+					System.out.println(this
+							+ ": Remove request successfully completed for "
+							+ childUri);
+				}
+				final Link responseNode = session.node(command
+						.getResponsePort().getUri(), command.getResponsePort()
+						.getSecret());
+
+				responseNode.catchUndefined(new UndefinedListener() {
 
 					@Override
-					public void onImpossible(final ImpossibleResult ir) {
+					public void onUndefined(final UndefinedResult r) {
 						latch.registerSuccess();
-						// some other process might have processed this item
+
+						System.out
+								.println(this
+										+ ": Unexpected error. Response node has not been defined correctly.");
+						// throw new RuntimeException(
+						// "Response node has not been defined correctly.");
 					}
 				});
 
-				if (ENABLE_LOG) {
-					System.out.println(this
-							+ ": Attempting to remove request for " + child);
-				}
-
-				removeRequest.get(new Closure<Success>() {
+				responseNode.get(new Closure<Node>() {
 
 					@Override
-					public void apply(final Success o) {
+					public void apply(final Node o) {
+
 						if (ENABLE_LOG) {
 							System.out
 									.println(this
-											+ ": Remove request successfully completed for "
+											+ ": Remove command and loaded response node for: "
 											+ childUri);
 						}
-						final Link responseNode = session.node(command
-								.getResponsePort().getUri(), command
-								.getResponsePort().getSecret());
 
-						responseNode.catchUndefined(new UndefinedListener() {
+						processCommand(command, o,
+								new RequestsProcessedCallback() {
 
-							@Override
-							public void onUndefined(final UndefinedResult r) {
-								latch.registerSuccess();
-
-								System.out
-										.println(this
-												+ ": Unexpected error. Response node has not been defined correctly.");
-								// throw new RuntimeException(
-								// "Response node has not been defined correctly.");
-							}
-						});
-
-						responseNode.get(new Closure<Node>() {
-
-							@Override
-							public void apply(final Node o) {
-
-								if (ENABLE_LOG) {
-									System.out
-											.println(this
-													+ ": Remove command and loaded response node for: "
-													+ childUri);
-								}
-
-								processCommand(command, o,
-										new RequestsProcessedCallback() {
-
-											@Override
-											public void onDone() {
-												latch.registerSuccess();
-											}
-										});
-							}
-						});
-
+									@Override
+									public void onDone() {
+										latch.registerSuccess();
+									}
+								});
 					}
 				});
 
 			}
-
-		}
-
+		});
 	}
 
 	/**
