@@ -26,7 +26,7 @@ import de.mxro.server.ComponentContext;
 
 public class CommandListWorker {
 
-	private static boolean ENABLE_LOG = true;
+	private static boolean ENABLE_LOG = false;
 
 	private final AtomicBoolean processing;
 

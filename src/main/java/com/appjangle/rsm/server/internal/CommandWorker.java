@@ -24,7 +24,7 @@ import de.mxro.server.ComponentContext;
 
 public class CommandWorker {
 
-	private static boolean ENABLE_LOG = true;
+	private static boolean ENABLE_LOG = false;
 
 	private final RsmServerConfiguration conf;
 	private final Link commands;

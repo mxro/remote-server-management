@@ -23,7 +23,7 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
-	private static boolean ENABLE_LOG = true;
+	private static boolean ENABLE_LOG = false;
 
 	private volatile boolean started = false;
 	private volatile boolean starting = false;
