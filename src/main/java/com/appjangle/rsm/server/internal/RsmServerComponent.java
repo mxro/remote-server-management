@@ -13,6 +13,7 @@ import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
 import io.nextweb.jre.Nextweb;
+import io.nextweb.operations.callbacks.NodeListener;
 
 import com.appjangle.rsm.server.RsmServerConfiguration;
 
@@ -23,236 +24,234 @@ import de.mxro.server.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
-	private static boolean ENABLE_LOG = false;
+    private static boolean ENABLE_LOG = false;
 
-	private volatile boolean started = false;
-	private volatile boolean starting = false;
+    private volatile boolean started = false;
+    private volatile boolean starting = false;
 
-	Session session;
-	RsmServerConfiguration conf;
-	Monitor monitor;
-	Link commands;
-	ComponentContext context;
-	CommandListWorker worker;
+    Session session;
+    RsmServerConfiguration conf;
+    Monitor monitor;
+    Link commands;
+    ComponentContext context;
+    CommandListWorker worker;
 
-	@Override
-	public void start(final StartCallback callback) {
-		if (started || starting) {
-			throw new IllegalStateException(
-					"Cannot start an already started component.");
-		}
-		starting = true;
+    @Override
+    public void start(final StartCallback callback) {
+        if (started || starting) {
+            throw new IllegalStateException(
+                    "Cannot start an already started component.");
+        }
+        starting = true;
 
-		session = Nextweb.createSession();
+        session = Nextweb.createSession();
 
-		commands = session.node(conf.getCommandsNode(),
-				conf.getCommandsNodeSecret());
+        commands = session.node(conf.getCommandsNode(),
+                conf.getCommandsNodeSecret());
 
-		if (ENABLE_LOG) {
-			System.out.println(this + ": Start monitoring: "
-					+ conf.getCommandsNode());
-		}
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Start monitoring: "
+                    + conf.getCommandsNode());
+        }
 
-		final Result<Monitor> monitorResult = commands.monitor(Interval.FAST,
-				new Closure<MonitorContext>() {
+        final Result<Monitor> monitorResult = commands.monitor()
+                .setInterval(Interval.FAST).addListener(new NodeListener() {
 
-					@Override
-					public void apply(final MonitorContext ctx) {
+                    @Override
+                    public void onWhenNodeChanged(final MonitorContext ctx) {
+                        if (ENABLE_LOG) {
+                            System.out
+                                    .println(this
+                                            + ": Change detected, processing requests.");
+                        }
 
-						if (ENABLE_LOG) {
-							System.out
-									.println(this
-											+ ": Change detected, processing requests.");
-						}
+                        processRequests(ctx.node());
+                    }
+                });
 
-						processRequests(ctx.node());
-					}
+        monitorResult.catchExceptions(new ExceptionListener() {
 
-				});
+            @Override
+            public void onFailure(final ExceptionResult r) {
+                callback.onFailure(r.exception());
+            }
+        });
 
-		monitorResult.catchExceptions(new ExceptionListener() {
+        if (ENABLE_LOG) {
+            System.out.println(this + ": Starting monitor.");
+        }
 
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(r.exception());
-			}
-		});
+        monitorResult.get(new Closure<Monitor>() {
 
-		if (ENABLE_LOG) {
-			System.out.println(this + ": Starting monitor.");
-		}
+            @Override
+            public void apply(final Monitor o) {
 
-		monitorResult.get(new Closure<Monitor>() {
+                if (ENABLE_LOG) {
+                    System.out.println(this + ": Monitor started.");
+                }
 
-			@Override
-			public void apply(final Monitor o) {
+                monitor = o;
+                starting = false;
+                started = true;
 
-				if (ENABLE_LOG) {
-					System.out.println(this + ": Monitor started.");
-				}
+                commands.get(new Closure<Node>() {
 
-				monitor = o;
-				starting = false;
-				started = true;
+                    @Override
+                    public void apply(final Node o) {
+                        if (ENABLE_LOG) {
+                            System.out.println(this
+                                    + ": Processing initial requests.");
+                        }
+                        // processing requests available on startup
+                        processRequests(o);
+                    }
+                });
 
-				commands.get(new Closure<Node>() {
+                callback.onStarted();
 
-					@Override
-					public void apply(final Node o) {
-						if (ENABLE_LOG) {
-							System.out.println(this
-									+ ": Processing initial requests.");
-						}
-						// processing requests available on startup
-						processRequests(o);
-					}
-				});
+            }
+        });
 
-				callback.onStarted();
+    }
 
-			}
-		});
+    public static interface RequestsProcessedCallback {
 
-	}
+        public void onDone();
 
-	public static interface RequestsProcessedCallback {
+    }
 
-		public void onDone();
+    private void processRequests(final Node node) {
 
-	}
+        node.selectAll().get(new Closure<NodeList>() {
 
-	private void processRequests(final Node node) {
+            @Override
+            public void apply(final NodeList o) {
 
-		node.selectAll().get(new Closure<NodeList>() {
+                if (worker == null) {
+                    worker = new CommandListWorker(commands, conf, session,
+                            context);
+                }
 
-			@Override
-			public void apply(final NodeList o) {
+                worker.addListToBeProcessed(o);
+                if (ENABLE_LOG) {
+                    System.out.println(this + ": Add to scheduled: "
+                            + o.values());
+                }
 
-				if (worker == null) {
-					worker = new CommandListWorker(commands, conf, session,
-							context);
-				}
+                worker.startProcessingIfRequired();
 
-				worker.addListToBeProcessed(o);
-				if (ENABLE_LOG) {
-					System.out.println(this + ": Add to scheduled: "
-							+ o.values());
-				}
+            }
+        });
 
-				worker.startProcessingIfRequired();
+    }
 
-			}
-		});
+    @Override
+    public void stop(final de.mxro.server.ShutdownCallback callback) {
+        assertServerNotStopped();
 
-	}
+        waitForStartupToBeCompleted();
 
-	@Override
-	public void stop(final de.mxro.server.ShutdownCallback callback) {
-		assertServerNotStopped();
+        waitForProcessingToStop();
 
-		waitForStartupToBeCompleted();
+        stopSessionAndMonitor(callback);
 
-		waitForProcessingToStop();
+    }
 
-		stopSessionAndMonitor(callback);
+    private void stopSessionAndMonitor(
+            final de.mxro.server.ShutdownCallback callback) {
+        final Result<Success> stopRequest = monitor.stop();
 
-	}
+        stopRequest.catchExceptions(new ExceptionListener() {
 
-	private void stopSessionAndMonitor(
-			final de.mxro.server.ShutdownCallback callback) {
-		final Result<Success> stopRequest = monitor.stop();
+            @Override
+            public void onFailure(final ExceptionResult r) {
+                callback.onFailure(r.exception());
+            }
+        });
 
-		stopRequest.catchExceptions(new ExceptionListener() {
+        stopRequest.get(new Closure<Success>() {
 
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(r.exception());
-			}
-		});
+            @Override
+            public void apply(final Success o) {
+                stopSession(callback);
+            }
 
-		stopRequest.get(new Closure<Success>() {
+        });
+    }
 
-			@Override
-			public void apply(final Success o) {
-				stopSession(callback);
-			}
+    private void stopSession(final de.mxro.server.ShutdownCallback callback) {
+        final Result<Success> result = session.close();
+        result.catchExceptions(new ExceptionListener() {
 
-		});
-	}
+            @Override
+            public void onFailure(final ExceptionResult r) {
+                callback.onFailure(r.exception());
+            }
+        });
+        result.get(new Closure<Success>() {
 
-	private void stopSession(final de.mxro.server.ShutdownCallback callback) {
-		final Result<Success> result = session.close();
-		result.catchExceptions(new ExceptionListener() {
+            @Override
+            public void apply(final Success o) {
 
-			@Override
-			public void onFailure(final ExceptionResult r) {
-				callback.onFailure(r.exception());
-			}
-		});
-		result.get(new Closure<Success>() {
+                started = false;
+                callback.onShutdownComplete();
+            }
+        });
+    }
 
-			@Override
-			public void apply(final Success o) {
+    private void assertServerNotStopped() {
+        if (!(started || starting)) {
+            throw new IllegalStateException(
+                    "Cannot stop an already stopped component.");
+        }
+    }
 
-				started = false;
-				callback.onShutdownComplete();
-			}
-		});
-	}
+    private void waitForStartupToBeCompleted() {
+        if (starting) {
+            while (!started) {
+                if (ENABLE_LOG) {
+                    System.out
+                            .println(this
+                                    + ": Cannot stop because component is still starting");
+                }
+                try {
+                    Thread.sleep(100);
+                } catch (final InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                Thread.yield();
+            }
+        }
+    }
 
-	private void assertServerNotStopped() {
-		if (!(started || starting)) {
-			throw new IllegalStateException(
-					"Cannot stop an already stopped component.");
-		}
-	}
+    private void waitForProcessingToStop() {
+        while (worker != null && worker.isWorking()) {
+            if (ENABLE_LOG) {
+                System.out.println(this
+                        + ": Cannot stop because server is processing/");
+            }
+            try {
+                Thread.sleep(100);
+            } catch (final InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            Thread.yield();
+        }
+    }
 
-	private void waitForStartupToBeCompleted() {
-		if (starting) {
-			while (!started) {
-				if (ENABLE_LOG) {
-					System.out
-							.println(this
-									+ ": Cannot stop because component is still starting");
-				}
-				try {
-					Thread.sleep(100);
-				} catch (final InterruptedException e) {
-					throw new RuntimeException(e);
-				}
-				Thread.yield();
-			}
-		}
-	}
+    @Override
+    public void injectConfiguration(final ComponentConfiguration conf) {
+        this.conf = (RsmServerConfiguration) conf;
+    }
 
-	private void waitForProcessingToStop() {
-		while (worker != null && worker.isWorking()) {
-			if (ENABLE_LOG) {
-				System.out.println(this
-						+ ": Cannot stop because server is processing/");
-			}
-			try {
-				Thread.sleep(100);
-			} catch (final InterruptedException e) {
-				throw new RuntimeException(e);
-			}
-			Thread.yield();
-		}
-	}
+    @Override
+    public void injectContext(final ComponentContext context) {
+        this.context = context;
+    }
 
-	@Override
-	public void injectConfiguration(final ComponentConfiguration conf) {
-		this.conf = (RsmServerConfiguration) conf;
-	}
-
-	@Override
-	public void injectContext(final ComponentContext context) {
-		this.context = context;
-	}
-
-	@Override
-	public ComponentConfiguration getConfiguration() {
-		return conf;
-	}
+    @Override
+    public ComponentConfiguration getConfiguration() {
+        return conf;
+    }
 
 }
