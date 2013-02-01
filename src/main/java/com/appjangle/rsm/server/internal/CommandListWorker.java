@@ -26,182 +26,192 @@ import de.mxro.server.ComponentContext;
 
 public class CommandListWorker {
 
-	private static boolean ENABLE_LOG = false;
+    private static boolean ENABLE_LOG = false;
 
-	private final AtomicBoolean processing;
+    private final AtomicBoolean processing;
 
-	private final List<NodeList> scheduled;
-	private final Link commands;
-	private final RsmServerConfiguration conf;
-	private final Session session;
-	private final ComponentContext context;
+    private final List<NodeList> scheduled;
+    private final Link commands;
+    private final RsmServerConfiguration conf;
+    private final Session session;
+    private final ComponentContext context;
 
-	public void addListToBeProcessed(final NodeList list) {
-		scheduled.add(list);
-	}
+    public void addListToBeProcessed(final NodeList list) {
+        scheduled.add(list);
+    }
 
-	public void startProcessingIfRequired() {
-		processScheduledGuarded();
-	}
+    public void startProcessingIfRequired() {
+        processScheduledGuarded();
+    }
 
-	public boolean isWorking() {
-		return processing.get();
-	}
+    public boolean isWorking() {
+        return processing.get();
+    }
 
-	protected void processScheduledGuarded() {
-		synchronized (processing) {
+    protected void processScheduledGuarded() {
+        synchronized (processing) {
 
-			if (processing.get()) {
-				if (ENABLE_LOG) {
-					System.out
-							.println(this
-									+ ": Skip processing because process already running.");
-				}
-				return;
-			}
+            if (processing.get()) {
+                if (ENABLE_LOG) {
+                    System.out
+                            .println(this
+                                    + ": Skip processing because process already running.");
+                }
+                return;
+            }
 
-			processing.set(true);
+            processing.set(true);
 
-		}
+        }
 
-		processScheduled();
-	}
+        processScheduled();
+    }
 
-	protected void processScheduled() {
-		if (scheduled.size() == 0) {
-			processing.set(false);
-			if (ENABLE_LOG) {
-				System.out.println(this + ": All pending operation cleared");
-			}
-			return;
-		}
+    protected void processScheduled() {
+        if (scheduled.size() == 0) {
+            processing.set(false);
+            if (ENABLE_LOG) {
+                System.out.println(this + ": All pending operation cleared");
+            }
+            return;
+        }
 
-		final NodeList o = scheduled.get(0);
-		scheduled.remove(0);
+        final NodeList o = scheduled.get(0);
+        scheduled.remove(0);
 
-		final List<Object> values = o.values();
-		if (ENABLE_LOG) {
+        final List<Object> values = new ArrayList<Object>(o.size());
 
-			System.out.println(this + ": Processing: " + values);
-		}
+        for (final Node n : o) {
+            // message might have been deleted in the meanwhile
+            if (n.exists()) {
+                values.add(n.value());
+            }
+        }
 
-		final List<Node> toBeProcessed = filter(o);
+        if (ENABLE_LOG) {
 
-		if (toBeProcessed.size() == 0) {
-			processScheduled();
-			return;
-		}
+            System.out.println(this + ": Processing: " + values);
+        }
 
-		processRequests(toBeProcessed, new RequestsProcessedCallback() {
+        final List<Node> toBeProcessed = filter(o);
 
-			@Override
-			public void onDone() {
+        if (toBeProcessed.size() == 0) {
+            processScheduled();
+            return;
+        }
 
-				if (ENABLE_LOG) {
-					System.out.println(this + ": Completed processing: "
-							+ values);
-				}
+        processRequests(toBeProcessed, new RequestsProcessedCallback() {
 
-				processScheduled();
-			}
-		});
+            @Override
+            public void onDone() {
 
-	}
+                if (ENABLE_LOG) {
+                    System.out.println(this + ": Completed processing: "
+                            + values);
+                }
 
-	private List<Node> filter(final NodeList o) {
-		final ArrayList<Node> filteredList = new ArrayList<Node>(o.size());
+                processScheduled();
+            }
+        });
 
-		for (final Node child : o.nodes()) {
+    }
 
-			final Object value = child.value();
+    private List<Node> filter(final NodeList o) {
+        final ArrayList<Node> filteredList = new ArrayList<Node>(o.size());
 
-			if ((value instanceof ComponentCommand)) {
-				filteredList.add(child);
-			}
+        for (final Node child : o.nodes()) {
 
-		}
+            if (child.exists()) {
+                final Object value = child.value();
 
-		return filteredList;
-	}
+                if ((value instanceof ComponentCommand)) {
+                    filteredList.add(child);
+                }
+            }
 
-	private void processRequests(final List<Node> o,
-			final RequestsProcessedCallback requestsProcessedCallback) {
+        }
 
-		final CallbackLatch latch = new CallbackLatch(o.size()) {
+        return filteredList;
+    }
 
-			@Override
-			public void onFailed(final Throwable t) {
-				requestsProcessedCallback.onDone();
-			}
+    private void processRequests(final List<Node> o,
+            final RequestsProcessedCallback requestsProcessedCallback) {
 
-			@Override
-			public void onCompleted() {
-				final IntegerResult clearVersionsRequest = commands
-						.clearVersions(10);
+        final CallbackLatch latch = new CallbackLatch(o.size()) {
 
-				// System.out.println("all done");
+            @Override
+            public void onFailed(final Throwable t) {
+                requestsProcessedCallback.onDone();
+            }
 
-				clearVersionsRequest.catchExceptions(new ExceptionListener() {
+            @Override
+            public void onCompleted() {
+                final IntegerResult clearVersionsRequest = commands
+                        .clearVersions(10);
 
-					@Override
-					public void onFailure(final ExceptionResult r) {
-						requestsProcessedCallback.onDone();
-					}
-				});
+                // System.out.println("all done");
 
-				clearVersionsRequest.get(new Closure<Integer>() {
+                clearVersionsRequest.catchExceptions(new ExceptionListener() {
 
-					@Override
-					public void apply(final Integer o) {
-						// System.out.println("TRIGGER");
-						requestsProcessedCallback.onDone();
-					}
-				});
+                    @Override
+                    public void onFailure(final ExceptionResult r) {
+                        requestsProcessedCallback.onDone();
+                    }
+                });
 
-			}
-		};
+                clearVersionsRequest.get(new Closure<Integer>() {
 
-		for (final Node child : o) {
+                    @Override
+                    public void apply(final Integer o) {
+                        // System.out.println("TRIGGER");
+                        requestsProcessedCallback.onDone();
+                    }
+                });
 
-			final Object value = child.value();
+            }
+        };
 
-			final String childUri = child.uri();
+        for (final Node child : o) {
 
-			if (value instanceof ComponentCommand) {
-				new CommandWorker(conf, commands, session, context).process(
-						child, value, childUri, new CommandProcessedCallback() {
+            final Object value = child.value();
 
-							@Override
-							public void onSuccess() {
-								latch.registerSuccess();
-							}
+            final String childUri = child.uri();
 
-							@Override
-							public void onFailure(final Throwable t) {
-								latch.registerFail(t);
-							}
-						});
+            if (value instanceof ComponentCommand) {
+                new CommandWorker(conf, commands, session, context).process(
+                        child, value, childUri, new CommandProcessedCallback() {
 
-				continue;
-			}
+                            @Override
+                            public void onSuccess() {
+                                latch.registerSuccess();
+                            }
 
-			throw new IllegalStateException("Child of wrong type");
+                            @Override
+                            public void onFailure(final Throwable t) {
+                                latch.registerFail(t);
+                            }
+                        });
 
-		}
+                continue;
+            }
 
-	}
+            throw new IllegalStateException("Child of wrong type");
 
-	public CommandListWorker(final Link commands,
-			final RsmServerConfiguration conf, final Session session,
-			final ComponentContext context) {
-		super();
-		this.commands = commands;
-		this.conf = conf;
-		this.session = session;
-		this.context = context;
-		this.processing = new AtomicBoolean(false);
-		this.scheduled = Collections
-				.synchronizedList(new LinkedList<NodeList>());
-	}
+        }
+
+    }
+
+    public CommandListWorker(final Link commands,
+            final RsmServerConfiguration conf, final Session session,
+            final ComponentContext context) {
+        super();
+        this.commands = commands;
+        this.conf = conf;
+        this.session = session;
+        this.context = context;
+        this.processing = new AtomicBoolean(false);
+        this.scheduled = Collections
+                .synchronizedList(new LinkedList<NodeList>());
+    }
 
 }
