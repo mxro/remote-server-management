@@ -8,10 +8,9 @@ import io.nextweb.common.Interval;
 import io.nextweb.common.Monitor;
 import io.nextweb.common.MonitorContext;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.ExceptionListener;
-import io.nextweb.fn.ExceptionResult;
 import io.nextweb.fn.Result;
 import io.nextweb.fn.Success;
+import io.nextweb.fn.exceptions.ExceptionResult;
 import io.nextweb.jre.Nextweb;
 import io.nextweb.operations.callbacks.NodeListener;
 

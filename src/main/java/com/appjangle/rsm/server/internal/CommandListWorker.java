@@ -4,10 +4,9 @@ import io.nextweb.Link;
 import io.nextweb.Node;
 import io.nextweb.NodeList;
 import io.nextweb.Session;
+import io.nextweb.engine.fn.IntegerResult;
 import io.nextweb.fn.Closure;
-import io.nextweb.fn.ExceptionListener;
-import io.nextweb.fn.ExceptionResult;
-import io.nextweb.fn.IntegerResult;
+import io.nextweb.fn.exceptions.ExceptionResult;
 
 import java.util.ArrayList;
 import java.util.Collections;
