@@ -6,8 +6,8 @@ import com.appjangle.rsm.server.internal.RsmServerComponent;
 import com.appjangle.rsm.server.internal.components.DoNothingComponent;
 
 import de.mxro.server.ComponentConfiguration;
+import de.mxro.server.ComponentFactory;
 import de.mxro.server.ServerComponent;
-import de.mxro.server.manager.ComponentFactory;
 import de.mxro.server.manager.ComponentManager;
 
 public class RsmServer {
