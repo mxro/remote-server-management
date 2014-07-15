@@ -20,7 +20,7 @@ import com.appjangle.rsm.server.RsmServerConfiguration;
 import de.mxro.server.ComponentConfiguration;
 import de.mxro.server.ComponentContext;
 import de.mxro.server.ServerComponent;
-import de.mxro.server.StartCallback;
+import de.mxro.service.callbacks.StartCallback;
 
 public class RsmServerComponent implements ServerComponent {
 
@@ -146,7 +146,7 @@ public class RsmServerComponent implements ServerComponent {
     }
 
     @Override
-    public void stop(final de.mxro.server.ShutdownCallback callback) {
+    public void stop(final de.mxro.service.callbacks.ShutdownCallback callback) {
         assertServerNotStopped();
 
         waitForStartupToBeCompleted();
@@ -158,7 +158,7 @@ public class RsmServerComponent implements ServerComponent {
     }
 
     private void stopSessionAndMonitor(
-            final de.mxro.server.ShutdownCallback callback) {
+            final de.mxro.service.callbacks.ShutdownCallback callback) {
         final Result<Success> stopRequest = monitor.stop();
 
         stopRequest.catchExceptions(new ExceptionListener() {
@@ -179,7 +179,7 @@ public class RsmServerComponent implements ServerComponent {
         });
     }
 
-    private void stopSession(final de.mxro.server.ShutdownCallback callback) {
+    private void stopSession(final de.mxro.service.callbacks.ShutdownCallback callback) {
         final Result<Success> result = session.close();
         result.catchExceptions(new ExceptionListener() {
 
